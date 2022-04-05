@@ -1,55 +1,83 @@
 from common import get_soup
 
-
 def extract_price(price_str):
+    if 'Â' in price_str:
+        price_str = price_str.split('Â')[1]
     """Extracts the price form the string in the product description as a float."""
-
-    return None
+    return float(price_str[1:])
 
 
 def extract_stock(stock_str):
     """Extracts the count form the string in the product description as an int."""
 
-    return None
-
+    return int(stock_str.split()[2][1:])
 
 def get_category(soup):
     """Extracts the category from the BeautifulSoup instance representing a book page as a string."""
 
-    breadcrumb_tag = soup.find_all("ul", class_="breadcrumb")[0]
-    a_tags = breadcrumb_tag.find_all("a")
-
-    return None
+    line = soup.find('ul', {'class':'breadcrumb'}).text.split('\n')
+    return [e for e in line if e][2]
 
 
 def get_title(soup):
     """Extracts the title from the BeautifulSoup instance representing a book page as a string."""
-
-    return None
+    
+    return soup.find('h1').text
 
 
 def get_description(soup):
     """Extracts the description from the BeautifulSoup instance representing a book page as a string."""
-
-    return None
+    if '\n' in soup.find_all('p')[3].text:
+        return None
+    return soup.find_all('p')[3].text
 
 
 def get_product_information(soup):
     """Extracts the product information from the BeautifulSoup instance representing a book page as a dict."""
+    d = {}
+    for tr in soup.find_all('table'):
+        line = (tr.get_text(separator = '|').split('|'))
+        if len(line) > 1:  
+            line = [e.replace('\n', '') for e in line]
+            line = [e for e in line if e != '']
+            for i in range(len(line)):
+                if (line[i][:2]) == 'Â£':
+                    line[i] = extract_price(line[i])
+                elif 'stock' in line[i].split(): 
+                    line[i] = extract_stock(line[i])
+                else: 
+                    pass
+            for key, val in list(zip(line[0::2], line[1::2])):
+                    d[key] = val
+    new_d = {k: v for k, v in d.items() if k.lower() == 'upc' or k.lower() == 'price (excl. tax)' or
+             k.lower() == 'availability' }
+    new_d['upc'] = new_d.pop('UPC')
+    new_d['price_gbp'] = new_d.pop('Price (excl. tax)')
+    new_d['stock'] = new_d.pop('Availability')
 
-    return None
-
+    return new_d
 
 def scrape_book(book_url):
+    soup = get_soup(book_url)
+    
+    d = get_product_information(soup)
     """Extracts all information from a book page and returns a dict."""
-
-    return None
+    d['title'] = get_title(soup)
+    d['category'] = get_category(soup)
+    d['description'] = get_description(soup)
+    
+    sorted_d = {}
+    for key in ['upc', 'title', 'category', 'description', 'price_gbp', 'stock']: 
+        sorted_d[key] = d[key]
+    return sorted_d
 
 
 def scrape_books(book_urls):
+    list_of_dicts = []
+    for link in book_urls: 
+        list_of_dicts.append(scrape_book(link))        
     """Extracts all information from a list of book page and returns a list of dicts."""
-
-    return None
+    return list_of_dicts
 
 
 if __name__ == "__main__":
